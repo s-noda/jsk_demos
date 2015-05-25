@@ -109,12 +109,18 @@
                 self :hrpsys-start-st-command-cb)
           (list drc_com_common::OCS2FCSmall::*HRPSYS_START_IMP*
                 self :hrpsys-start-imp-command-cb)
+          (list drc_com_common::OCS2FCSmall::*HRPSYS_START_IMP_SOFT*
+                self :hrpsys-start-imp-command-soft-cb)
+          (list drc_com_common::OCS2FCSmall::*HRPSYS_START_IMP_HARD*
+                self :hrpsys-start-imp-command-hard-cb)
           (list drc_com_common::OCS2FCSmall::*HRPSYS_STOP_ABC*
                 self :hrpsys-stop-abc-command-cb)
           (list drc_com_common::OCS2FCSmall::*HRPSYS_STOP_ST*
                 self :hrpsys-stop-st-command-cb)
           (list drc_com_common::OCS2FCSmall::*HRPSYS_STOP_IMP*
                 self :hrpsys-stop-imp-command-cb)
+          (list drc_com_common::OCS2FCSmall::*CALIB_HAND*
+                self :calib-hand-command-cb)
           (list drc_com_common::OCS2FCSmall::*ANGLE_VECTOR_SEND*
                 self :angle-vector-send-command-callback)
           (list drc_com_common::OCS2FCSmall::*REACH_UNTIL_TOUCH_EXEC*
@@ -259,12 +265,13 @@
       ))
   (:drill-grasp-region-command-callback (msg)
     (when (send smachine :state? :initial)
-      ;; Enable passthrough for 10seconds
-      (call-request-duration "/drill_recognition/passthrough/request_duration" 10)
-      ;; convert OCS2FCSmall into geometry_msgs/Polygon
-      (ros::publish "/drill_recognition/input_rect"
-        (integer-vector-to-rect-polygon-stamped msg))
-      ;; enable snapshot
+      ;; We do not specify ROI region anymore
+      ;; ;; Enable passthrough for 10seconds
+      ;; (call-request-duration "/drill_recognition/passthrough/request_duration" 10)
+      ;; ;; convert OCS2FCSmall into geometry_msgs/Polygon
+      ;; (ros::publish "/drill_recognition/input_rect"
+      ;;   (integer-vector-to-rect-polygon-stamped msg))
+      ;; ;; enable snapshot
       (call-empty-service "/drill_recognition/snapshot/request")
       (send smachine :go-to :recognizing-drill-grasp-pose)
       ))
@@ -466,7 +473,7 @@
 	       (if arm
                    (progn
                      (setq *drill-main-arm* arm)
-                     (send-drill-grasp-motion coords :stand-coords stand-coords)
+                     (send-drill-grasp-motion coords :stand-coords stand-coords :drill-rotate-num (send msg :image_type))
                      )
                  (ros::ros-info "arm side empty")
                  )
@@ -476,7 +483,11 @@
 	  (set-drill-default-coords)
 	  (send msg :params (coords-set-to-float-vector 
 			     (list
-			      (send (send (send *robot* :body_lk) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords)) (send (send (send *robot* *drill-main-arm* :end-coords) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords))) (length (send msg :params))))
+			      (send (send (send *robot* :body_lk) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords)) 
+                              (send (send (send *robot* *drill-main-arm* :end-coords) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords))
+                              (make-coords :pos (float-vector (check-diff-angle) 1 0))
+                              ) (length (send msg :params))
+                              ))
           (send msg :type drc_com_common::FC2OCSSmall::*DRILL_GRASP_FINISHED*)
           (send self :send-to-ocs msg))
         )
@@ -546,21 +557,26 @@
         (setq *cancel-motion-flag* nil)
         (catch 'exit
         ;; send motion to real robot
-        (let* ((arm-side (send msg :arm_side))
-               (arm (cond ((equal arm-side drc_com_common::OCS2FCSmall::*LARM*) :larm) ((equal arm-side drc_com_common::OCS2FCSmall::*RARM*) :rarm) (t nil))))
-	       (if arm
-                   (progn
-                     (setq *drill-main-arm* arm)
-		     (send-drill-button-motion coords)	
-                     )
-                 (ros::ros-info "arm side empty")
-		 )
-	       )
-        ;; send finish signal to ocs
-        (let ((msg (instance drc_com_common::FC2OCSSmall :init)))
-          (send msg :type drc_com_common::FC2OCSSmall::*DRILL_BUTTON_FINISHED*)
-          (send self :send-to-ocs msg))
-        )
+          (let (ret)
+            (let* ((arm-side (send msg :arm_side))
+                   (arm (cond ((equal arm-side drc_com_common::OCS2FCSmall::*LARM*) :larm) ((equal arm-side drc_com_common::OCS2FCSmall::*RARM*) :rarm) (t nil))))
+              (if arm
+                  (progn
+                    (setq *drill-main-arm* arm)
+                    (setq ret (send-drill-button-motion coords))
+                    )
+                (ros::ros-info "arm side empty")
+                )
+              )
+            ;; send finish signal to ocs
+            (let ((msg (instance drc_com_common::FC2OCSSmall :init)))
+              (send msg :type drc_com_common::FC2OCSSmall::*DRILL_BUTTON_FINISHED*)
+              (if (equal ret :success)
+                  (send msg :success t)
+                  )
+              (send self :send-to-ocs msg))
+            )
+          )
         (send smachine :go-to :initial)
         ))
     )
@@ -577,15 +593,19 @@
 	       (if arm
                    (progn
                      (setq *drill-main-arm* arm)
-		     (send-drill-rotate-motion (elt coords-set 0) (elt coords-set 1))
+		     (send-drill-rotate-motion (elt coords-set 0) (elt coords-set 1) :drill-rotate-num (send msg :image_type))
                      )
                  (ros::ros-info "arm side empty")
 		 )
 	       )
         ;; send finish signal to ocs
         (let ((msg (instance drc_com_common::FC2OCSSmall :init)))
-	  (send msg :params (coords-set-to-float-vector 
-			     (list							 (send (send (send *robot* :body_lk) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords)) (send (send (send *robot* *drill-main-arm* :end-coords) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords))) (length (send msg :params))))
+	  (send msg :params (coords-set-to-float-vector
+			     (list
+                              (send (send (send *robot* :body_lk) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords))
+                              (send (send (send *robot* *drill-main-arm* :end-coords) :copy-worldcoords) :transformation (send *drill* :copy-worldcoords))
+                              (make-coords :pos (float-vector (check-diff-angle) 1 0))
+                              ) (length (send msg :params))))
 	  (send msg :type drc_com_common::FC2OCSSmall::*DRILL_ROTATE_FINISHED*)
           (send self :send-to-ocs msg))
         )
@@ -684,11 +704,14 @@
            (integer-vector-to-rect-polygon-stamped msg)))
         )
        ((eq (send msg :image_type) drc_com_common::OCS2FCSmall::*PANORAMA_VIEW*)
-        (ros::publish "/panorama/panorama_processing/output/screenrectangle"
-          (integer-vector-to-rect-polygon-stamped msg))
-        ;; enable snapshot
-        (call-empty-service "/panorama/snapshot/request")
-        (send smachine :go-to :recognizing-look-at-point-panorama))
+        (ros::publish "/fisheye/input"
+          (compute-centroid-of-polygon-stamped
+           (integer-vector-to-rect-polygon-stamped msg)))
+        ;; enable snapshot: no need?
+        ;; (call-empty-service "/panorama/snapshot/request")
+        ;; /fisheye/fisheye_click_to_pose/output_point
+        (send smachine :go-to :recognizing-look-at-point))
+        ;;(send smachine :go-to :recognizing-look-at-point-panorama))
        (t
         (error "unknown image type: ~A" (send msg :image_type)))
        )))
@@ -884,10 +907,10 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
           (send self :send-to-ocs msg)
           (send smachine :go-to :initial)
           ))))
-  (:look-at-panorama-recog-callback (msg)
-    (ros::ros-warn "panorama callback!")
-    (send smachine :go-to :recognizing-look-at-point)
-    (send self :look-at-recog-callback (pose-stamped-to-point-stamped msg)))
+  ;; (:look-at-panorama-recog-callback (msg)
+  ;;   (ros::ros-warn "panorama callback!")
+  ;;   (send smachine :go-to :recognizing-look-at-point)
+  ;;   (send self :look-at-recog-callback (pose-stamped-to-point-stamped msg)))
   (:look-at-recog-callback (msg)
     (when (send smachine :state? :recognizing-look-at-point)
       (let* ((trans (send self :lookup-from-body-transform (send msg :header)))
@@ -1018,14 +1041,34 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
     (send *ri* :wait-interpolation)
     (send self :send-rviz-button-finished-to-ocs))
   (:drill-reset-pose-command-callback (msg)
-    (send *robot* :angle-vector (get-drill-reset-pose))
+    (let* ((arm-side (send msg :arm_side))
+           (arm (cond ((equal arm-side drc_com_common::OCS2FCSmall::*LARM*) :larm) ((equal arm-side drc_com_common::OCS2FCSmall::*RARM*) :rarm) (t nil))))
+      (if arm
+          (progn
+            (setq *drill-main-arm* arm)            )
+        (ros::ros-info "arm side empty")
+        )
+      )
+    (send *robot* :angle-vector (get-reach-drill-pre-pose))
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
     (send self :send-rviz-button-finished-to-ocs))
   (:watch-drill-pose-command-callback (msg)
+    (let* ((arm-side (send msg :arm_side))
+           (arm (cond ((equal arm-side drc_com_common::OCS2FCSmall::*LARM*) :larm) ((equal arm-side drc_com_common::OCS2FCSmall::*RARM*) :rarm) (t nil))))
+      (if arm
+          (progn
+            (setq *drill-main-arm* arm)
+            )
+        (ros::ros-info "arm side empty")
+        )
+      )
+    (when (or (equal *robot-name* "HRP2JSKNTS") (equal *robot-name* "HRP2JSKNT"))
+      (send *robot* :angle-vector (get-reach-drill-pre-pose))
+      (model2real :time 5000)
+      )
     (send *robot* :angle-vector (get-watch-drill-pose))
-    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
-    (send *ri* :wait-interpolation)
+    (model2real :time 5000)
     (send self :send-rviz-button-finished-to-ocs))
   (:door-through-pose-command-callback (msg)
     (send *robot* :angle-vector (get-door-through-pose))
@@ -1034,22 +1077,17 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
     (hand-start-grasp :real? t)
     (send self :send-rviz-button-finished-to-ocs))
   (:hand-reset-pose-command-callback (msg)
-    (send *robot* :hand :arms :reset-pose)
-    (hand-model2real)
+    (hand-stop-grasp :real? t :type :reset-pose)
     (send self :send-rviz-button-finished-to-ocs))
   (:hand-hook-pose-command-callback (msg)
-    (send *robot* :hand :arms :hook-pose)
-    (hand-model2real)
+    (hand-stop-grasp :real? t)
     (send self :send-rviz-button-finished-to-ocs))
   (:hand-hook-after-pose-command-callback (msg)
     (unix::sleep 5)
-    (send *robot* :hand :arms :hook-pose)
-    (hand-model2real)
+    (hand-stop-grasp :real? t)
     (send self :send-rviz-button-finished-to-ocs))
   (:hand-grasp-pose-command-callback (msg)
-    (send *robot* :hand :arms :angle-vector (float-vector 90.0 0.0 0.0 0.0 90.0 90.0))
-    ;(send *robot* :hand :arms :grasp-pose)
-    (hand-model2real)
+    (hand-start-grasp :real? t :type :default-grasp)
     (send self :send-rviz-button-finished-to-ocs))
   (:hrpsys-start-abc-command-cb (msg)
     (send *ri* :start-auto-balancer)
@@ -1058,16 +1096,29 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
     (send *ri* :start-st)
     (send self :send-rviz-button-finished-to-ocs))
   (:hrpsys-start-imp-command-cb (msg)
-    (send *ri* :start-impedance :arms :moment-gain #f(0 0 0) :k-p 1000 :d-p 400)
+    (set-default-impedance-param)
+    (send *ri* :start-impedance :arms)
+    (send self :send-rviz-button-finished-to-ocs))
+  (:hrpsys-start-imp-command-soft-cb (msg)
+    (start-soft-impedance)
+    (send self :send-rviz-button-finished-to-ocs))
+  (:hrpsys-start-imp-command-hard-cb (msg)
+    (start-hard-impedance)
     (send self :send-rviz-button-finished-to-ocs))
   (:hrpsys-stop-abc-command-cb (msg)
-    (send *ri* :stop-auto-balancer)
+    ;(send *ri* :stop-auto-balancer)
     (send self :send-rviz-button-finished-to-ocs))
   (:hrpsys-stop-st-command-cb (msg)
-    (send *ri* :stop-st)
+    ;(send *ri* :stop-st)
     (send self :send-rviz-button-finished-to-ocs))
   (:hrpsys-stop-imp-command-cb (msg)
     (send *ri* :stop-impedance :arms)
+    (send self :send-rviz-button-finished-to-ocs))
+  (:calib-hand-command-cb (msg)
+    (cond ((or (equal *robot-name* "JAXON") (equal *robot-name* "STARO"))
+           (send *ri* :hand-reset))
+          (t ;; (or (equal *robot-name* "HRP2JSKNT") (equal *robot-name* "HRP2JSKNTS"))
+           (send *ri* :hand-joint-calib)))
     (send self :send-rviz-button-finished-to-ocs))
   (:send-rviz-button-finished-to-ocs ()
     (let ((msg (instance drc_com_common::FC2OCSSmall :init)))
@@ -1143,6 +1194,7 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
 (setq *robot-name* (string-upcase (unix::getenv "ROBOT")))
 
 (generate-robot *robot-name* :generate-ri? t)
+(set-drill-environment :draw? nil :generate-ri? t) ;; for init param
 
 (setq *go-pos-offset* 700)
 (let ((drill-type-string (ros::get-param "~drill_type" "takenoko")))
@@ -1159,6 +1211,7 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
 (ros::advertise "/hose_grasp_recognition/input_rect" geometry_msgs::PolygonStamped)
 (ros::advertise "/hose_connect_recognition/input_rect" geometry_msgs::PolygonStamped)
 (ros::advertise "/lookat/input" geometry_msgs::PointStamped)
+(ros::advertise "/fisheye/input" geometry_msgs::PointStamped)
 (ros::advertise "/panorama/panorama_processing/output/screenrectangle" geometry_msgs::PolygonStamped)
 (ros::advertise "/valve_recognition/input_rect" geometry_msgs::PolygonStamped)
 (ros::advertise "/door_recognition/input_support_plane_rect" geometry_msgs::PolygonStamped)
@@ -1179,8 +1232,10 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
   #'send *app* :go-pos-recog-callback)
 (ros::subscribe "/lookat/output_passthrough/output" geometry_msgs::PointStamped
   #'send *app* :look-at-recog-callback)
-(ros::subscribe "/panorama/snapshot/output" geometry_msgs::PoseStamped
-  #'send *app* :look-at-panorama-recog-callback)
+;; (ros::subscribe "/panorama/snapshot/output" geometry_msgs::PoseStamped
+;;   #'send *app* :look-at-panorama-recog-callback)
+(ros::subscribe "/fisheye/fisheye_click_to_pose/output_point" geometry_msgs::PointStamped
+  #'send *app* :look-at-recog-callback)
 (ros::subscribe "/valve_recognition/snapshot/output" jsk_recognition_msgs::Torus
   #'send *app* :valve-recog-callback)
 (ros::subscribe "/door_recognition/snapshot/output" jsk_recognition_msgs::BoundingBoxArray

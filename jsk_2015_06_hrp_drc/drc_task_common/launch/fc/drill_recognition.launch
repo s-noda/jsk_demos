@@ -12,7 +12,6 @@
         radius_search: 0.05
       </rosparam>
     </node>
-    
     <node pkg="jsk_pcl_ros"
           type="normal_direction_filter"
           name="normal_direction_filter">
@@ -72,10 +71,12 @@
              to="polygon_flipper/output/coefficients"
              />
       <rosparam>
+        use_sensor_frame: true
+        sensor_frame: head_root
         use_indices: false
-        min_height: -0.5
-        max_height: -0.01
-        magnify: 0.0
+        min_height: 0.02
+        max_height: 0.5
+        magnify: -0.01
       </rosparam>
     </node>
 
@@ -134,12 +135,22 @@
         z_dimension_max: 0.5
       </rosparam>
     </node>
-
+    
+    <node pkg="drc_task_common"
+          type="filter_bbox_position.py"
+          name="filter_by_position">
+      <remap from="~input" to="filter_small_boxes/output_box"/>
+      <rosparam>
+        frame_id: ground
+        min_z: 0.7
+        max_z: 1.5
+      </rosparam>
+    </node>
     <node pkg="jsk_pcl_ros"
           type="attention_clipper"
           name="boundingbox_clipper">
       <remap from="~input/points" to="remove_small_noises/output"/>
-      <remap from="~input/box_array" to="filter_small_boxes/output_box"/>
+      <remap from="~input/box_array" to="filter_by_position/output"/>
       <rosparam>
         use_multiple_attention: true
         radius_search: 0.05
@@ -159,15 +170,23 @@
       <remap from="~input/indices"
              to="boundingbox_clipper/output/cluster_point_indices"/>
       <rosparam>
+        optimistic: true
         cylinder_max_iterations: 1000
         cylinder_min_radius: 0.02
         cylinder_max_radius: 0.04
       </rosparam>
     </node>
+    
     <node pkg="jsk_topic_tools"
           name="flip_cylinder_coords"
           type="static_transform_pose_stamped"
           args="0 0 0 0 3.14 0 standing_drill_detector/output/pose drill_pose"
           />
+    <node pkg="jsk_topic_tools" type="snapshot" name="snapshot">
+      <remap from="~input" to="drill_pose"/>
+      <rosparam>
+        latch: true
+      </rosparam>
+    </node>
   </group>
 </launch>

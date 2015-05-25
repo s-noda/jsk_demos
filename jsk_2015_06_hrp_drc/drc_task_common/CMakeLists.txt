@@ -11,7 +11,7 @@ add_message_files(DIRECTORY msg FILES TMarkerInfo.msg)
 add_message_files(DIRECTORY msg FILES Float32ArrayStamped.msg)
 add_message_files(DIRECTORY msg FILES Int8Float64.msg)
 add_service_files(DIRECTORY srv FILES RvizMenuCall.srv RvizMenuSelect.srv EusCommand.srv StringRequest.srv ICPService.srv GetIKArm.srv GetIKArmPose.srv GoPosCommand.srv Uint8Request.srv AngleVectorCommand.srv ReachUntilTouchCommand.srv
-  SetValue.srv)
+  SetValue.srv GetBoolState.srv)
 
 # Generate msg file from DRCParametersConfig file
 execute_process(
@@ -22,9 +22,9 @@ generate_dynamic_reconfigure_options(
   config/vehicle/LocalPlannerParams.cfg
   config/vehicle/ObstacleDetectionParams.cfg
   config/vehicle/PassthroughCarBody.cfg
-  config/vehicle/SwitchInputCloud.cfg
-  config/vehicle/VisualOdometryVerification.cfg
+  config/vehicle/ObstacleIndicatorParams.cfg
   cfg/StandingDrillDetector.cfg
+  cfg/FilterBBoxPosition.cfg
 )
 
 add_message_files(DIRECTORY msg FILES DRCParametersMessage.msg)
@@ -100,17 +100,13 @@ add_executable(simplified_local_planner src/drc_task_common/simplified_local_pla
 add_dependencies(simplified_local_planner ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_gencpp)
 target_link_libraries(simplified_local_planner ${catkin_LIBRARIES})
 
-add_executable(switch_input_cloud src/drc_task_common/input_cloud_switching.cpp)
-add_dependencies(switch_input_cloud ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_gencpp)
-target_link_libraries(switch_input_cloud  ${catkin_LIBRARIES})
-
-add_executable(visual_odometry_verification src/drc_task_common/visual_odometry_verification.cpp)
-add_dependencies(visual_odometry_verification ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_gencpp)
-target_link_libraries(visual_odometry_verification ${catkin_LIBRARIES})
-
 add_executable(passthrough_car_body src/drc_task_common/passthrough_car_body.cpp)
 add_dependencies(passthrough_car_body ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_gencpp)
 target_link_libraries(passthrough_car_body ${catkin_LIBRARIES})
+
+add_executable(obstacle_indicator src/drc_task_common/obstacle_indicator.cpp)
+add_dependencies(obstacle_indicator ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_gencpp)
+target_link_libraries(obstacle_indicator ${catkin_LIBRARIES})
 
 execute_process(
   COMMAND mkdir -p ${PROJECT_SOURCE_DIR}/pcds)

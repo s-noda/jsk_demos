@@ -4,19 +4,11 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Global Options1
-        - /SimpleOccupancyGridArray1
         - /PointCloud21
-        - /PointCloud21/Status1
-        - /PointCloud22
-        - /BoundingBoxArray1
-        - /Camera1
-        - /TF1
-        - /TF1/Frames1
-        - /InteractiveMarkers1
-        - /Footstep1
+        - /PolygonArray1
+        - /PolygonArray2
       Splitter Ratio: 0.493124
-    Tree Height: 1061
+    Tree Height: 1104
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -76,7 +68,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 1
@@ -89,10 +81,10 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.01
       Style: Flat Squares
-      Topic: /multisense/resize_1_4/points
+      Topic: /locomotion/footprint_point_sampler/output
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -105,23 +97,23 @@ Visualization Manager:
       Color: 255; 255; 127
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0.865177
+      Max Intensity: 6.74384
       Min Color: 0; 0; 0
-      Min Intensity: -0.752532
+      Min Intensity: -0.117713
       Name: PointCloud2
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
       Size (m): 0.005
-      Style: Flat Squares
-      Topic: /laser_preprocess/odom_cloud/output
+      Style: Boxes
+      Topic: /full_cloud2
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Auto Color: false
       Class: jsk_rviz_plugin/SimpleOccupancyGridArray
@@ -146,6 +138,11 @@ Visualization Manager:
           Show Trail: false
           Value: true
         CHEST_LINK1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        CHEST_LINK2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -203,10 +200,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        LARM_cb_jig:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         LLEG_LINK0:
           Alpha: 1
           Show Axes: false
@@ -233,6 +226,21 @@ Visualization Manager:
           Show Trail: false
           Value: true
         LLEG_LINK5:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        L_thk_finger1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        L_thk_finger2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        L_thk_palm:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -278,10 +286,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        RARM_cb_jig:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         RLEG_LINK0:
           Alpha: 1
           Show Axes: false
@@ -312,6 +316,21 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        R_thk_finger1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        R_thk_finger2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        R_thk_palm:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
         accel:
           Alpha: 1
           Show Axes: false
@@ -333,10 +352,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        head_end_coords:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         head_hokuyo_frame:
           Alpha: 1
           Show Axes: false
@@ -366,6 +381,14 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        lfsensor:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        lhsensor:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         lleg_end_coords:
           Alpha: 1
           Show Axes: false
@@ -379,6 +402,14 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
         rarm_end_coords:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        rfsensor:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        rhsensor:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -402,10 +433,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        torso_end_coords:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
       Name: RobotModel
       Robot Description: robot_description
       TF Prefix: ""
@@ -426,10 +453,10 @@ Visualization Manager:
     - Alpha: 1
       Class: jsk_rviz_plugin/PolygonArray
       Color: 25; 255; 0
-      Enabled: false
+      Enabled: true
       Name: PolygonArray
-      Topic: /locomotion/plane_concatenator/output/polygons
-      Value: false
+      Topic: /locomotion/footprint_polygon_publisher/output_polygons
+      Value: true
       auto color: true
       normal length: 0.1
       only border: true
@@ -450,10 +477,10 @@ Visualization Manager:
     - Alpha: 1
       Class: jsk_rviz_plugin/PolygonArray
       Color: 25; 255; 0
-      Enabled: false
+      Enabled: true
       Name: PolygonArray
       Topic: /locomotion/plane_estimation/output/polygons
-      Value: false
+      Value: true
       auto color: false
       normal length: 0.1
       only border: true
@@ -578,260 +605,19 @@ Visualization Manager:
       Use Rainbow: true
       Value: false
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        BODY:
-          Value: false
-        CAMERA_L:
-          Value: false
-        CAMERA_R:
-          Value: false
-        CHEST_LINK0:
-          Value: false
-        CHEST_LINK1:
-          Value: false
-        HEAD_LINK0:
-          Value: false
-        HEAD_LINK1:
-          Value: false
-        LARM_LINK0:
-          Value: false
-        LARM_LINK1:
-          Value: false
-        LARM_LINK2:
-          Value: false
-        LARM_LINK3:
-          Value: false
-        LARM_LINK4:
-          Value: false
-        LARM_LINK5:
-          Value: false
-        LARM_LINK6:
-          Value: false
-        LARM_LINK7:
-          Value: false
-        LARM_cb_jig:
-          Value: false
-        LLEG_LINK0:
-          Value: false
-        LLEG_LINK1:
-          Value: false
-        LLEG_LINK2:
-          Value: false
-        LLEG_LINK3:
-          Value: false
-        LLEG_LINK4:
-          Value: false
-        LLEG_LINK5:
-          Value: false
-        RARM_LINK0:
-          Value: false
-        RARM_LINK1:
-          Value: false
-        RARM_LINK2:
-          Value: false
-        RARM_LINK3:
-          Value: false
-        RARM_LINK4:
-          Value: false
-        RARM_LINK5:
-          Value: false
-        RARM_LINK6:
-          Value: false
-        RARM_LINK7:
-          Value: false
-        RARM_cb_jig:
-          Value: false
-        RLEG_LINK0:
-          Value: false
-        RLEG_LINK1:
-          Value: false
-        RLEG_LINK2:
-          Value: false
-        RLEG_LINK3:
-          Value: false
-        RLEG_LINK4:
-          Value: false
-        RLEG_LINK5:
-          Value: false
-        accel:
-          Value: false
-        base_footprint:
-          Value: false
-        center_bottom_led_frame:
-          Value: false
-        center_top_led_frame:
-          Value: false
-        ground:
-          Value: true
-        gsensor:
-          Value: false
-        gyro:
-          Value: false
-        gyrometer:
-          Value: false
-        head:
-          Value: false
-        head_end_coords:
-          Value: false
-        head_hokuyo_frame:
-          Value: false
-        head_root:
-          Value: false
-        hokuyo_link:
-          Value: false
-        larm_end_coords:
-          Value: false
-        left_camera_frame:
-          Value: false
-        left_camera_optical_frame:
-          Value: false
-        left_led_frame:
-          Value: false
-        lfsensor:
-          Value: false
-        lhsensor:
-          Value: false
-        lleg_end_coords:
-          Value: false
-        mag:
-          Value: false
-        map:
-          Value: false
-        motor:
-          Value: false
-        odom:
-          Value: false
-        odom_on_ground:
-          Value: false
-        rarm_end_coords:
-          Value: false
-        rfsensor:
-          Value: false
-        rhsensor:
-          Value: false
-        right_camera_frame:
-          Value: false
-        right_camera_optical_frame:
-          Value: false
-        right_led_frame:
-          Value: false
-        rleg_end_coords:
-          Value: false
-        spindle:
-          Value: false
-        torso_end_coords:
-          Value: false
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          odom:
-            base_footprint:
-              BODY:
-                CHEST_LINK0:
-                  CHEST_LINK1:
-                    HEAD_LINK0:
-                      HEAD_LINK1:
-                        CAMERA_L:
-                          {}
-                        CAMERA_R:
-                          {}
-                        head_end_coords:
-                          {}
-                        head_root:
-                          accel:
-                            {}
-                          gyro:
-                            {}
-                          head:
-                            center_bottom_led_frame:
-                              {}
-                            center_top_led_frame:
-                              {}
-                            left_camera_frame:
-                              left_camera_optical_frame:
-                                motor:
-                                  spindle:
-                                    hokuyo_link:
-                                      head_hokuyo_frame:
-                                        {}
-                            left_led_frame:
-                              {}
-                            right_camera_frame:
-                              right_camera_optical_frame:
-                                {}
-                            right_led_frame:
-                              {}
-                          mag:
-                            {}
-                    LARM_LINK0:
-                      LARM_LINK1:
-                        LARM_LINK2:
-                          LARM_LINK3:
-                            LARM_LINK4:
-                              LARM_LINK5:
-                                LARM_LINK6:
-                                  LARM_LINK7:
-                                    {}
-                                  LARM_cb_jig:
-                                    {}
-                                  larm_end_coords:
-                                    {}
-                                  lhsensor:
-                                    {}
-                    RARM_LINK0:
-                      RARM_LINK1:
-                        RARM_LINK2:
-                          RARM_LINK3:
-                            RARM_LINK4:
-                              RARM_LINK5:
-                                RARM_LINK6:
-                                  RARM_LINK7:
-                                    {}
-                                  RARM_cb_jig:
-                                    {}
-                                  rarm_end_coords:
-                                    {}
-                                  rhsensor:
-                                    {}
-                    gsensor:
-                      {}
-                    gyrometer:
-                      {}
-                    torso_end_coords:
-                      {}
-                LLEG_LINK0:
-                  LLEG_LINK1:
-                    LLEG_LINK2:
-                      LLEG_LINK3:
-                        LLEG_LINK4:
-                          LLEG_LINK5:
-                            lfsensor:
-                              {}
-                            lleg_end_coords:
-                              {}
-                RLEG_LINK0:
-                  RLEG_LINK1:
-                    RLEG_LINK2:
-                      RLEG_LINK3:
-                        RLEG_LINK4:
-                          RLEG_LINK5:
-                            rfsensor:
-                              {}
-                            rleg_end_coords:
-                              {}
-            ground:
-              {}
-            odom_on_ground:
-              {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
@@ -967,22 +753,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.95353
+      Distance: 2.28596
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.672348
-        Y: 0.151525
-        Z: -0.0598188
+        X: 0.15917
+        Y: -0.136016
+        Z: -0.255021
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.989796
+      Pitch: 0.554797
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.38409
+      Yaw: 2.16911
     Saved: ~
 Window Geometry:
   Camera:
@@ -992,7 +778,7 @@ Window Geometry:
   Height: 1364
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000249000004b4fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afc00000041000004b4000000dd00fffffffa000000010100000002fb0000000c00430061006d00650072006102000000620000010d0000033d000003c9fb000000100044006900730070006c0061007900730100000000000002010000010f00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000002abfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000041000002ab000000b000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000a000000003bfc0100000002fb0000000800540069006d0065010000000000000a00000002f600fffffffb0000000800540069006d00650100000000000004500000000000000000000007b1000004b400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd000000040000000000000249000004d9fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005300fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afc00000022000004d9000000b500fffffffa000000010100000002fb0000000c00430061006d00650072006102000000620000010d0000033d000003c9fb000000100044006900730070006c006100790073010000000000000201000000f100fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000002abfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000041000002ab0000009700fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000a000000003bfc0100000002fb0000000800540069006d0065010000000000000a000000020200fffffffb0000000800540069006d00650100000000000004500000000000000000000007b1000004d900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -1002,5 +788,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 2560
-  X: -8
-  Y: 24
+  X: 173
+  Y: 240

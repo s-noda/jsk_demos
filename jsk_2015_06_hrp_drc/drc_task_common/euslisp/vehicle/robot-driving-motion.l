@@ -38,7 +38,7 @@
 
   ;; initial methods
   (:drive-init-pose ;; initial pose for driving task
-   (&key (tm 20000))
+   (&key (tm 10000))
    (warn ":drive-init-pose should be impremented for each robots~%")
    )
   (:ride ;; move robot onto the car in model environment
@@ -49,7 +49,7 @@
      )
    )
   (:drive-init-pose-crank
-   (&key (limb (send self :get :grasp-arm)) (tm 10000) (drive-init-pose nil) (move-arm t))
+   (&key (limb (send self :get :grasp-arm)) (tm 5000) (drive-init-pose nil) (move-arm t))
    (when (not (equal limb (send self :get :grasp-arm)))
      (send self :grasp-arm limb)
      )
@@ -79,9 +79,10 @@
   ;; handling
   (:approach-handle
    (&rest args &key (limb (send self :get :grasp-arm)) (target-handle (send self :get :grasp-point)) (sync-controller nil)
-          (tm 15000) (offset #f(-150 0 0)) (rot-offset 0)
+          (tm 7500) (offset #f(-100 0 0)) (rot-offset 0)
           (debug-view nil) (rotation-axis t) (start-impedance nil) (stop-impedance nil)
           (null-space #f(-0.06 -0.3 0.0 -0.18 0.16 0.0 0.0 0.0))
+          (allowable-theta 180) (iteration-theta 5)
           &allow-other-keys
           )
    (when start-impedance
@@ -89,54 +90,66 @@
      )
    (send self :open-hand limb)
    (when (and sync-controller (not (send *ri* :simulation-modep)))
-     (if (equal limb :larm)
-         (send *ri* :sync-controller :larm-controller)
-       (send *ri* :sync-controller :rarm-controller)
-       )
+     (send *ri* :sync-controller (read-from-string (format nil ":~A-controller" (string-downcase limb))))
      )
    (let ((check-links (subseq (send robot limb :links) 3 6)) (distance-threshold 100)
          (body-link (elt (send robot :links) 0))
          (handle-link (find-if #'(lambda (h) (eq (send h :name) :handle-link)) (send (send *car* :vehicle-handle) :links)))
-         (offset-target-handle-coords
-          (send (send (send (send self :rotate-grasp-point-by-grasp-arm (send car target-handle))
-                            :copy-worldcoords)
-                      :translate offset)
-                :rotate rot-offset :z (send self :rotate-grasp-point-by-grasp-arm (send car target-handle)) ;; grasp-point is assumed to be a pole and axis :z is to be grasped (:x, :y cannot be rotated to grasp) 
-                )
-          )
+         (target-handle-coords-org (send (send self :rotate-grasp-point-by-grasp-arm (send car target-handle)) :copy-worldcoords))
          (old-angle-vector (send robot limb :angle-vector))
-         ik-result
+         (rot-angle 0) (ik-result nil) target-handle-coords
          )
-     ;; first, move roughly without collision detection
-     (setq ik-result
-           (send robot :inverse-kinematics offset-target-handle-coords
-                 :move-target (send robot limb :end-coords)
-                 :link-list (send robot :link-list (send robot limb :end-coords :parent) (send robot limb :root-link))
-                 :rotation-axis nil :debug-view debug-view
-                 ;; :null-space null-space ;; avoid rarm to outside
-                 ;; :null-space #f(30.0 -150.0 0.0 90.0 80.0 0.0 20.0 0.0) ;; avoid rarm to outside
+     (labels ((approach-ik
+              (target)
+              (let (result)
+                ;; first, move roughly without collision detection
+                (setq result
+                      (send robot :inverse-kinematics target
+                            :move-target (send robot limb :end-coords)
+                            :link-list (send robot :link-list (send robot limb :end-coords :parent) (send robot limb :root-link))
+                            :rotation-axis nil :debug-view debug-view
+                            )
+                      )
+                (when result ;; execute only if approach ik is succeed
+                  ;; second, re-solve inverse kinematics considering collision
+                  (setq result
+                        (send robot :inverse-kinematics target
+                              :move-target (send robot limb :end-coords)
+                              :link-list (send robot :link-list (send robot limb :end-coords :parent) (send robot limb :root-link))
+                              :rotation-axis rotation-axis :debug-view debug-view
+                              :avoid-collision-null-gain 100
+                              :avoid-collision-joint-gain 0.1
+                              :collision-avoidance-link-pair (concatenate cons
+                                                                          (mapcar #'(lambda (x) (list x body-link)) check-links)
+                                                                          (mapcar #'(lambda (x) (list x handle-link)) check-links))
+                              :additional-check
+                              #'(lambda ()
+                                  (not (some #'null (mapcar #'(lambda (x) (> (car (pqp-collision-distance x body-link)) distance-threshold))
+                                                            check-links))))
+                              )
+                        )
+                  )
+                (unless result  ;; revert first ik when second ik failed
+                  (send robot limb :angle-vector old-angle-vector)
+                  )
+                result
+                )
+              ))
+       ;; define target-handle-coords
+       (while (and (< rot-angle allowable-theta) (not ik-result))
+         (setq target-handle-coords
+               (send (send (send target-handle-coords-org :copy-worldcoords) :rotate (deg2rad rot-angle) :z :local)
+                     :translate offset :local)
+               )
+         (setq ik-result (approach-ik target-handle-coords))
+         (when (not ik-result)
+           (setq target-handle-coords
+                 (send (send (send target-handle-coords-org :copy-worldcoords) :rotate (deg2rad (- rot-angle)) :z :local)
+                       :translate offset :local)
                  )
+           (setq ik-result (approach-ik target-handle-coords))
            )
-     (when ik-result ;; execute only if approach ik is succeed
-       ;; second, re-solve inverse kinematics considering collision
-       (setq ik-result
-             (send robot :inverse-kinematics offset-target-handle-coords
-                   :move-target (send robot limb :end-coords)
-                   :link-list (send robot :link-list (send robot limb :end-coords :parent) (send robot limb :root-link))
-                   :rotation-axis rotation-axis :debug-view debug-view :stop 1000
-                   :avoid-collision-null-gain 100
-                   :avoid-collision-joint-gain 0.1
-                   :collision-avoidance-link-pair (concatenate cons
-                                                               (mapcar #'(lambda (x) (list x body-link)) check-links)
-                                                               (mapcar #'(lambda (x) (list x handle-link)) check-links))
-                   :additional-check
-                   #'(lambda ()
-                       (not (some #'null (mapcar #'(lambda (x) (> (car (pqp-collision-distance x body-link)) distance-threshold))
-                                                 check-links))))
-                   )
-             )
-       (unless ik-result
-         (send robot limb :angle-vector old-angle-vector) ;; revert when second ik failed
+         (setq rot-angle (+ rot-angle iteration-theta))
          )
        )
      (when (and real ik-result)
@@ -147,21 +160,95 @@
          )
        )
      ik-result ;; return result of ik (nil is failed)
-     )      
-   )  
+     )
+   )
+  ;; old approach-handle
+  ;; (:approach-handle
+  ;;  (&rest args &key (limb (send self :get :grasp-arm)) (target-handle (send self :get :grasp-point)) (sync-controller nil)
+  ;;         (tm 7500) (offset #f(-150 0 0)) (rot-offset 0)
+  ;;         (debug-view nil) (rotation-axis t) (start-impedance nil) (stop-impedance nil)
+  ;;         (null-space #f(-0.06 -0.3 0.0 -0.18 0.16 0.0 0.0 0.0))
+  ;;         &allow-other-keys
+  ;;         )
+  ;;  (when start-impedance
+  ;;    (send self :set-impedance-for-handle limb)
+  ;;    )
+  ;;  (send self :open-hand limb)
+  ;;  (when (and sync-controller (not (send *ri* :simulation-modep)))
+  ;;    (send *ri* :sync-controller (read-from-string (format nil ":~A-controller" (string-downcase limb))))
+  ;;    )
+  ;;  (let ((check-links (subseq (send robot limb :links) 3 6)) (distance-threshold 100)
+  ;;        (body-link (elt (send robot :links) 0))
+  ;;        (handle-link (find-if #'(lambda (h) (eq (send h :name) :handle-link)) (send (send *car* :vehicle-handle) :links)))
+  ;;        (offset-target-handle-coords
+  ;;         (send (send (send (send self :rotate-grasp-point-by-grasp-arm (send car target-handle))
+  ;;                           :copy-worldcoords)
+  ;;                     :translate offset)
+  ;;               :rotate rot-offset :z (send self :rotate-grasp-point-by-grasp-arm (send car target-handle)) ;; grasp-point is assumed to be a pole and axis :z is to be grasped (:x, :y cannot be rotated to grasp) 
+  ;;               )
+  ;;         )
+  ;;        (old-angle-vector (send robot limb :angle-vector))
+  ;;        ik-result
+  ;;        )
+  ;;    ;; first, move roughly without collision detection
+  ;;    (setq ik-result
+  ;;          (send robot :inverse-kinematics offset-target-handle-coords
+  ;;                :move-target (send robot limb :end-coords)
+  ;;                :link-list (send robot :link-list (send robot limb :end-coords :parent) (send robot limb :root-link))
+  ;;                :rotation-axis nil :debug-view debug-view
+  ;;                ;; :null-space null-space ;; avoid rarm to outside
+  ;;                ;; :null-space #f(30.0 -150.0 0.0 90.0 80.0 0.0 20.0 0.0) ;; avoid rarm to outside
+  ;;                )
+  ;;          )
+  ;;    (when ik-result ;; execute only if approach ik is succeed
+  ;;      ;; second, re-solve inverse kinematics considering collision
+  ;;      (setq ik-result
+  ;;            (send robot :inverse-kinematics offset-target-handle-coords
+  ;;                  :move-target (send robot limb :end-coords)
+  ;;                  :link-list (send robot :link-list (send robot limb :end-coords :parent) (send robot limb :root-link))
+  ;;                  :rotation-axis rotation-axis :debug-view debug-view :stop 1000
+  ;;                  :avoid-collision-null-gain 100
+  ;;                  :avoid-collision-joint-gain 0.1
+  ;;                  :collision-avoidance-link-pair (concatenate cons
+  ;;                                                              (mapcar #'(lambda (x) (list x body-link)) check-links)
+  ;;                                                              (mapcar #'(lambda (x) (list x handle-link)) check-links))
+  ;;                  :additional-check
+  ;;                  #'(lambda ()
+  ;;                      (not (some #'null (mapcar #'(lambda (x) (> (car (pqp-collision-distance x body-link)) distance-threshold))
+  ;;                                                check-links))))
+  ;;                  )
+  ;;            )
+  ;;      (unless ik-result
+  ;;        (send robot limb :angle-vector old-angle-vector) ;; revert when second ik failed
+  ;;        )
+  ;;      )
+  ;;    (when (and real ik-result)
+  ;;      (send *ri* :angle-vector (send robot :angle-vector) tm)
+  ;;      (send *ri* :wait-interpolation)
+  ;;      (when stop-impedance
+  ;;        (send *ri* :stop-impedance limb)
+  ;;        )
+  ;;      )
+  ;;    ik-result ;; return result of ik (nil is failed)
+  ;;    )
+  ;;  )
+
   (:grasp-handle
    (&rest args &key (limb (send self :get :grasp-arm)) (target-handle (send self :get :grasp-point))
-          (debug nil) (tm 10000) (debug-view nil) (start-impedance t) (rotation-axis :z) (adjust nil)
-          (update-ik-seed t)
+          (debug nil) (tm 7000) (debug-view nil) (start-impedance t) (rotation-axis :z) (adjust nil)
+          (update-ik-seed t) (offset #f(0 0 0)) (offset-wrt :local)
           &allow-other-keys)
    ;; (send self :open-hand limb)
    (when (and real start-impedance)
      (send self :set-impedance-for-handle limb)
      )
    (let ((check-links (subseq (send robot limb :links) 3 6)) (distance-threshold 100)
-         (body-link (elt (send robot :links) 0)) ik-result)
+         (body-link (elt (send robot :links) 0)) (old-angle-vector (send robot limb :angle-vector))
+         ik-result
+         )
      (setq ik-result
-           (send robot :inverse-kinematics (send (send self :rotate-grasp-point-by-grasp-arm (send car target-handle)) :copy-worldcoords)
+           (send robot :inverse-kinematics 
+                 (send (send self :rotate-grasp-point-by-grasp-arm (send car target-handle)) :copy-worldcoords)
                  :move-target (send robot limb :end-coords)
                  :link-list (send robot :link-list (send robot limb :end-coords :parent) (send robot limb :root-link))
                  :rotation-axis rotation-axis :debug-view debug-view
@@ -176,27 +263,33 @@
                  )
            )
      (when ik-result ;; execute only when ik is succeed
-       (when real
-         (send *ri* :angle-vector (send robot :angle-vector) tm)
-         (send *ri* :wait-interpolation)
-         )
-       (send self :close-hand limb)
-       ;; for exchange
-       (send self :put :grasp-arm limb)
-       (send self :put :grasp-point target-handle)
-       (when adjust
-         (send self :adjust-real-handle-coords)
-         )
-       (when update-ik-seed ;; update steering-arm-ik-seed when grasp
-         (send self :update-steering-arm-ik-seed)
+       (setq ik-result (send robot limb :move-end-pos offset offset-wrt))
+       (if ik-result
+           (progn 
+             (when real
+               (send *ri* :angle-vector (send robot :angle-vector) tm)
+               (send *ri* :wait-interpolation)
+               )
+             (send self :close-hand limb)
+             ;; for exchange
+             (send self :put :grasp-arm limb)
+             (send self :put :grasp-point target-handle)
+             (when adjust
+               (send self :adjust-real-handle-coords)
+               )
+             (when update-ik-seed ;; update steering-arm-ik-seed when grasp
+               (send self :update-steering-arm-ik-seed)
+               )
+             )
+         (send robot limb :angle-vector old-angle-vector) ;; resume
          )
        )
      ik-result ;; return result of ik (nil is failed)
-     ) 
+     )
    )
   (:release-handle
    (&rest args &key (limb (send self :get :grasp-arm))
-          (tm 10000) (debug-view nil) (rotation-axis :z) (sync-controller t)
+          (tm 7000) (debug-view nil) (rotation-axis :z) (sync-controller t)
           (offset #f(-100 0 0)) ;; offset should be local in end-coords
           &allow-other-keys
           )
@@ -254,14 +347,25 @@
      (send robot :transform (send real-handle-coords :transformation model-handle-coords :world))
      )
    )
-  (:overwrite-handle-angle-forcely ;; CAUTION: this function do not consider appropriateness between handle-coords and end-coords of grasp-arm
-   (new-angle &key (use-real-robot-angle nil))
+  (:overwrite-handle-angle ;; CAUTION: this function do not consider appropriateness between handle-coords and end-coords of grasp-arm
+   (new-angle &key (use-real-robot-angle t) (use-controller t) (regrasp-handle nil) (time 5000))
    (let ((real-robot-angle-vector (send *ri* :state :potentio-vector))
-         )
+         (limb-controller (read-from-string (format nil ":~A-controller" (string-downcase (send self :grasp-arm)))))
+         )     
+     (send car :handle-joint :joint-angle new-angle)
      (when use-real-robot-angle
        (send robot :angle-vector real-robot-angle-vector)
+       (when (and real (not regrasp-handle))
+         (if use-controller
+             (send *ri* :angle-vector (send robot :angle-vector) time limb-controller)
+           (send *ri* :angle-vector (send robot :angle-vector) time)
+           )
+         )
        )
-     (send car :handle-joint :joint-angle new-angle)
+     (if regrasp-handle
+         (send self :grasp-handle)       
+       )
+     (send car :handle-joint :joint-angle new-angle) ;; return new handle angle
      )
    )
   (:fix-handle-overturn
@@ -275,7 +379,7 @@
                                )
                           )
            )
-     (send self :overwrite-handle-angle-forcely new-angle :use-real-robot-angle use-real-robot-angle)
+     (send self :overwrite-handle-angle new-angle :use-real-robot-angle use-real-robot-angle)
      )
    )
   (:turn-handle
@@ -289,13 +393,7 @@
           )
      ;; define controller
      (if use-controller
-         (case limb
-           (:larm (setq controller :larm-controller))
-           (:rarm (setq controller :rarm-controller))
-           (:lleg (setq controller :lleg-controller))
-           (:rleg (setq controller :rleg-controller))
-           (t (setq controller :default-controller))
-           )
+         (setq controller (read-from-string (format nil ":~A-controller" (string-downcase limb))))
        (setq controller :default-controller)
        )
      ;; check interpolation
@@ -336,8 +434,8 @@
                    old-limb-angle-vector
                    )
                (when (and steering-arm-ik-seed use-ik-seed)
-                 (setq old-limb-angle-vector (send robot (send self :get :grasp-arm) :angle-vector))
-                 (send robot (send self :get :grasp-arm) :angle-vector steering-arm-ik-seed) ;; use same seed for steering ik
+                 (setq old-limb-angle-vector (send robot limb :angle-vector))
+                 (send robot limb :angle-vector steering-arm-ik-seed) ;; use same seed for steering ik
                  )
                (setq ik-ret
                      (send robot :inverse-kinematics coord
@@ -364,7 +462,7 @@
                             )
                           )
                  (progn (when (and steering-arm-ik-seed use-ik-seed)
-                          (send robot (send self :get :grasp-arm) :angle-vector old-limb-angle-vector) ;; resume angle-vector
+                          (send robot limb :angle-vector old-limb-angle-vector) ;; resume angle-vector
                           )
                         (return nil) ;; ik failed
                         )
@@ -395,7 +493,7 @@
   (:turn-handle-once
    (deg  &key (limb (send self :get :grasp-arm)) (target-handle (send self :get :grasp-point))
          (time 100) (relative t) (debug-view nil) (use-controller t) (stop 100)
-         (rotation-axis 0) (use-ik-seed t)
+         (rotation-axis 0) (use-ik-seed t) (offset #f(0 0 0)) (offset-wrt :local)
          )
    (let ((target-degree (if relative deg (- deg (send car :handle-joint :joint-angle))))
          (check-links (subseq (send robot limb :links) 3 6)) (distance-threshold 100)
@@ -444,23 +542,29 @@
                                                check-links))))
                  )
            )
+
      (unless ik-result ;; ik failed
-       (progn (when (and steering-arm-ik-seed use-ik-seed)
-                (send robot (send self :get :grasp-arm) :angle-vector old-limb-angle-vector) ;; resume angle-vector
-                )
-              (send car :handle-joint :joint-angle (- real-target-degree) :relative t) ;; resume joint angle
-              (return-from :turn-handle-once real-target-degree) ;; return remain-angle (= target-angle)
-              )
+       (when (and steering-arm-ik-seed use-ik-seed)
+         (send robot (send self :get :grasp-arm) :angle-vector old-limb-angle-vector) ;; resume angle-vector
+         )
+       (send car :handle-joint :joint-angle (- real-target-degree) :relative t) ;; resume joint angle
+       (return-from :turn-handle-once real-target-degree) ;; return remain-angle (= target-angle)
        )
+     
+     ;; reflect grasp offset
+     (setq ik-result (send robot limb :move-end-pos offset offset-wrt))
+
+     (unless ik-result ;; ik failed
+       (when (and steering-arm-ik-seed use-ik-seed)
+         (send robot (send self :get :grasp-arm) :angle-vector old-limb-angle-vector) ;; resume angle-vector
+         )
+       (send car :handle-joint :joint-angle (- real-target-degree) :relative t) ;; resume joint angle
+       (return-from :turn-handle-once real-target-degree) ;; return remain-angle (= target-angle)
+       )
+
      ;; define controller
      (if use-controller
-         (case limb
-           (:larm (setq controller :larm-controller))
-           (:rarm (setq controller :rarm-controller))
-           (:lleg (setq controller :lleg-controller))
-           (:rleg (setq controller :rleg-controller))
-           (t (setq controller :default-controller))
-           )
+         (setq controller (read-from-string (format nil ":~A-controller" (string-downcase limb))))
        (setq controller :default-controller)
        )
      ;; send angle-vector-sequence to real robot
@@ -515,7 +619,7 @@
 
   ;; pedaling
   (:approach-pedal
-   (limb target-pedal &key (tm 2500) (debug-view nil))
+   (limb target-pedal &key (tm 2000) (debug-view nil))
    ;; (send robot limb :inverse-kinematics (send (send car target-pedal) :copy-worldcoords) :rotation-axis t :debug-view debug-view)
    (let (approach-result)
      (setq approach-result
@@ -533,8 +637,12 @@
      )
    )
   (:approach-accel-pedal
-   (&rest args &key (limb :rleg) (tm 5000) (debug-view nil) (reach-until-touch nil) (reach-until-touch-thre 10))
+   (&rest args &key (limb :rleg) (tm 2500) (debug-view nil)
+          (reach-until-touch nil) (reach-until-touch-thre 10) (sync-controller nil))
    (let (approach-result)
+     (when (and sync-controller (not (send *ri* :simulation-modep)))
+       (send *ri* :sync-controller (read-from-string (format nil ":~A-controller" (string-downcase limb))))
+       )
      (setq approach-result
            (send self :approach-pedal limb :accel-pedal :tm tm :debug-view debug-view)
            )
@@ -546,7 +654,7 @@
              ) ;; todo: reach-until-touch uses copy-object
        (send *ri* :state) ;; update 
        (send robot limb :angle-vector (send *ri* :robot limb :angle-vector)) ;; reflect reach-until-touch result
-       (send robot limb :move-end-pos #f(0 0 10) :local) ;; compensate overshoot
+       (send robot limb :move-end-pos #f(0 0 10) :local) ;; pedal should not be touched at first
        (send *ri* :angle-vector (send robot :angle-vector) tm)
        (send *ri* :wait-interpolation)
        )
@@ -554,7 +662,7 @@
      )
    )
   (:step-accel-pedal
-   (command &key (time 1000) (relative nil) (use-controller t) (no-wait t))
+   (command &key (time 500) (relative nil) (use-controller t) (no-wait t))
    (send robot :rleg-ankle-p :joint-angle command :relative relative)
    (when real
      (if use-controller
@@ -576,7 +684,11 @@
      )
    )
   (:approach-brake-pedal
-   (&rest args &key (limb :lleg) (tm 5000) (debug-view nil) (reach-until-touch nil) (reach-until-touch-thre 10))
+   (&rest args &key (limb :lleg) (tm 2500) (debug-view nil) 
+          (reach-until-touch nil) (reach-until-touch-thre 10) (sync-controller nil))
+   (when (and sync-controller (not (send *ri* :simulation-modep)))
+       (send *ri* :sync-controller (read-from-string (format nil ":~A-controller" (string-downcase limb))))
+       )
    (let (approach-result)
      (setq approach-result
            (send self :approach-pedal limb :brake-pedal :tm tm :debug-view debug-view)
@@ -589,7 +701,7 @@
              ) ;; todo: reach-until-touch uses copy-object
        (send *ri* :state) ;; update 
        (send robot limb :angle-vector (send *ri* :robot limb :angle-vector)) ;; reflect reach-until-touch result
-       (send robot limb :move-end-pos #f(0 0 10) :local) ;; compensate overshoot
+       (send robot limb :move-end-pos #f(0 0 10) :local) ;; pedal should not be touched at first
        (send *ri* :angle-vector (send robot :angle-vector) tm)
        (send *ri* :wait-interpolation)
        )
@@ -597,7 +709,7 @@
      )
    )
   (:step-brake-pedal
-   (command &key (time 1000) (relative nil) (use-controller t))
+   (command &key (time 500) (relative nil) (use-controller t))
    (send robot :lleg-ankle-p :joint-angle command :relative relative)
    (when real
      (if use-controller
@@ -667,7 +779,7 @@
   (:approach-frame
    (&rest args &key (limb :larm) (target-handle :left-frame-center) (rotation-axis :z)
           (time 10000) (offset #f(-100 0 0)) (offset-wrt :local) (debug-view nil)
-          (grasp nil) (reach-until-touch nil) (reach-until-touch-thre 10)
+          (grasp nil) (reach-until-touch nil) (reach-until-touch-thre 10) (max-dist 50)
           )
    (send self :open-hand limb)
    (let ((check-links (subseq (send robot limb :links) 2 4))
@@ -689,7 +801,7 @@
        (when (and reach-until-touch (not (send *ri* :simulation-modep)))
          (send *ri* :reach-until-touch limb
                (send (send robot limb :end-coords :copy-worldcoords) :rotate-vector #f(1 0 0))
-               :coords-system :world :thre reach-until-touch-thre :max-dist 100 :dist-step 5
+               :coords-system :world :thre reach-until-touch-thre :max-dist max-dist :dist-step 5
                :rotation-axis :z :time-step 1000 :debug debug-view
                ) ;; todo: reach-until-touch uses copy-object
          (send *ri* :state) ;; update
@@ -704,7 +816,7 @@
   (:approach-fist
    (&rest args &key (limb :rarm) (target-handle :seat-left) (rotation-axis t) (offset #f(0 0 100))
           (offset-wrt :world) (debug-view nil) (time 10000) (reach-until-touch nil) (reach-until-touch-thre 10)
-          (start-impedance nil) (set-ref-force nil))
+          (start-impedance nil) (set-ref-force nil) (max-dist 100))
    (send self :close-hand limb)
    (let (ik-ret)
      (setq ik-ret (send robot limb :inverse-kinematics (send (send (send car target-handle) :copy-worldcoords) :translate offset offset-wrt)
@@ -720,7 +832,7 @@
        (when (and reach-until-touch (not (send *ri* :simulation-modep)))
          (send *ri* :reach-until-touch limb
                (send (send robot limb :end-coords :copy-worldcoords) :rotate-vector #f(1 0 0))
-               :coords-system :world :thre reach-until-touch-thre :max-dist 100 :dist-step 5
+               :coords-system :world :thre reach-until-touch-thre :max-dist max-dist :dist-step 5
                :rotation-axis :z :time-step 1000 :debug debug-view
                ) ;; todo: reach-until-touch uses copy-object
          (send *ri* :state) ;; update
@@ -738,7 +850,7 @@
    (&rest args &key (limb :lleg) (target-handle :floor) (time 10000) (debug-view nil)
           (offset #f(0 0 50)) (offset-wrt :local)
           (start-impedance t) (stop-ref-force nil) (set-ref-force nil) (reach-until-touch-thre 10)
-          (reach-until-touch nil) (use-imu nil)
+          (reach-until-touch nil) (use-imu nil) (max-dist 50)
           &allow-other-keys)
    (when (and real stop-ref-force)
      (send *ri* :set-ref-force #f(0 0 0) 10000 limb)
@@ -787,12 +899,11 @@
            (when (and reach-until-touch (not (send *ri* :simulation-modep)))
              (send *ri* :reach-until-touch limb
                    (send (send robot limb :end-coords :copy-worldcoords) :rotate-vector #f(0 0 -1))
-                   :coords-system :world :thre reach-until-touch-thre :max-dist 100 :dist-step 5
+                   :coords-system :world :thre reach-until-touch-thre :max-dist max-dist :dist-step 5
                    :rotation-axis :z :time-step 1000 :debug debug-view
                    ) ;; todo: reach-until-touch uses copy-object
              (send *ri* :state) ;; update 
              (send robot limb :angle-vector (send *ri* :robot limb :angle-vector)) ;; reflect reach-until-touch result
-             (send robot limb :move-end-pos #f(0 0 10) :local) ;; compensate overshoot
              )
            ;; ref-force
            (when set-ref-force
@@ -821,6 +932,7 @@
        (send *viewer* :draw-objects)
        )
      )
+   (send robot :head axis :joint-angle) ;; return current angle
    )
 
   ;; egress
@@ -831,11 +943,10 @@
 
   ;; utils
   (:sync-all-controller
-   ()
-   (send *ri* :sync-controller :larm-controller)
-   (send *ri* :sync-controller :rarm-controller)
-   (send *ri* :sync-controller :lleg-controller)
-   (send *ri* :sync-controller :rleg-controller)
+   (&optional (sync-targets (list :larm :rarm :lleg :rleg)))
+   (dolist (target sync-targets)
+     (send *ri* :sync-controller (read-from-string (format nil ":~A-controller" (string-downcase target))))
+     )
    )
   (:move-robot-position
    (position &key (relative t) (wrt :world))
@@ -929,19 +1040,33 @@
      ik-ret
      )
    )
-  (:display-error-of-grasp-arm
-   ()
-   (let ((tmp-angle-vector (send (send self :robot) :angle-vector)) ;; save original angle-vector
-         diff-angle-vector diff-coords
+  (:calc-error-of-grasp-arm
+   (&rest args &key (mode :angle-vector) (display-result nil))
+   (let ((original-angle-vector (send (send self :robot) :angle-vector)) ;; save original angle-vector
+         (original-arm-angle-vector (send (send self :robot) (send self :grasp-arm) :angle-vector))
+         (original-end-coords (send (send self :robot) (send self :grasp-arm) :end-coords :copy-worldcoords))
+         diff-angle-vector diff-coords retval
          )
      (send (send self :robot) :angle-vector (send *ri* :state :potentio-vector))
-     (setq diff-angle-vector (v- (send robot (send self :grasp-arm) :angle-vector) (send (send self :robot) (send self :grasp-arm) :angle-vector)))
-     (setq diff-coords (send (send robot (send self :grasp-arm) :end-coords) :transformation (send (send self :robot) (send self :grasp-arm) :end-coords) :world))
-     (send (send self :robot) :angle-vector tmp-angle-vector) ;; resume
-     (warn "diff-angle-vector: ~A~%" diff-angle-vector)
-     (warn "diff-angle-vector-norm: ~A~%" (norm diff-angle-vector))
-     (warn "diff-coords: ~A~%" diff-coords)
-     (warn "~%")
+     (case mode
+       (:angle-vector
+        (setq diff-angle-vector (v- (send robot (send self :grasp-arm) :angle-vector) original-arm-angle-vector))
+        (when display-result
+          (warn "diff-angle-vector: ~A~%" diff-angle-vector)
+          (warn "diff-angle-vector-norm: ~A~%" (norm diff-angle-vector))
+          )
+        (setq retval diff-angle-vector)
+        )
+       (:coords
+         (setq diff-coords (send original-end-coords :transformation (send robot (send self :grasp-arm) :end-coords :copy-worldcoords) :local))
+         (when display-result
+           (warn "diff-coords: ~A~%" diff-coords)
+           )
+         (setq retval diff-coords)
+         )
+       )
+     (send (send self :robot) :angle-vector original-angle-vector) ;; resume
+     retval
      )
    )
   
@@ -950,12 +1075,27 @@
   (:car (&rest args) (forward-message-to car args))
   (:handle-angle () (send car :handle-joint :joint-angle))
   (:real
-   (&optional (val 0))
+   (&optional (val 0) &key (use-real-robot-angle t))
    (unless (equal val 0)
      (setq real val)
-     (send robot :angle-vector (send *ri* :state :potentio-vector)) ;; sync model angle-vector to real
+     (when use-real-robot-angle
+       (send robot :angle-vector (send *ri* :state :potentio-vector)) ;; sync model angle-vector to real
+       )
      )
    real
+   )
+  (:model2real
+   (&key (time 10000) (controller :default-controller) (wait-interpolation t) ((:real tmp-real) real))
+   (let ((retval nil))
+     (when tmp-real
+       (setq retval (send *ri* :angle-vector (send self :robot :angle-vector) time controller))
+       (when wait-interpolation
+         (send *ri* :wait-interpolation controller)
+         )
+       (send *viewer* :draw-objects)
+       )
+     retval
+     )
    )
   (:grasp-arm 
    (&optional val) 

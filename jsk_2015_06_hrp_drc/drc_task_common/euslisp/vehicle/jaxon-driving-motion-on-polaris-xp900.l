@@ -19,12 +19,15 @@
    )    
   
   (:drive-init-pose
-   (&key (tm 20000))
+   (&key (tm 10000))
    ;; (send robot :angle-vector #f(-13.1189 -24.4656 -83.3638 44.9385 7.33334 27.7739 15.5265 -14.998 -95.4989 97.065 0.433944 15.5246 8.0 0.0 0.0 0.0 0.0 17.0643 79.1999 -96.2707 -5.3561 -85.9563 27.0803 22.0044 22.1802 0.0 55.0 20.0 15.0 -100.0 25.0 0.0 -45.0))
    ;; (send robot :angle-vector #f(-13.1189 -24.4656 -83.3638 44.9385 7.33334 27.7739 15.5265 -14.998 -95.4989 97.065 0.433944 15.5246 8.0 0.0 0.0 0.0 0.0 -13.7511 33.5688 -108.234 8.54591 -90.0 0.0 45.0 3.38633 0.0 55.0 20.0 15.0 -100.0 25.0 0.0 -45.0)) ;; fixed pose in driving-simulator
    ;; (send robot :angle-vector #f(-13.2762 -24.7025 -92.0869 71.704 -10.7745 28.0506 36.0874 -21.6131 -90.5514 112.587 -19.1011 14.1156 8.0 0.0 0.0 0.0 0.0 -13.7511 33.5688 -108.234 8.54591 -90.0 0.0 45.0 3.38633 0.0 55.0 20.0 15.0 -100.0 25.0 0.0 -45.0)) ;; move legs -100 in x axis from above
    ;; (send robot :angle-vector #f(-10.8755 -20.9737 -94.5136 76.5544 -12.2659 23.7151 35.779 -15.8163 -94.2405 111.319 -14.2426 8.31144 8.0 0.0 0.0 0.0 0.0 -13.7511 33.5688 -108.234 8.54591 -90.0 0.0 45.0 3.38633 0.0 55.0 20.0 15.0 -100.0 25.0 0.0 -45.0)) ;; move torso to -50
-   (send robot :angle-vector #f(-8.43548 -16.9475 -96.4631 80.3675 -13.336 19.0749 35.4682 -9.61909 -96.8849 109.094 -9.44266 2.10682 8.0 0.0 0.0 0.0 0.0 -13.7511 33.5688 -108.234 8.54591 -90.0 0.0 45.0 3.38633 0.0 55.0 20.0 15.0 -100.0 25.0 0.0 -45.0)) ;; move torso to -100   
+   ;; (send robot :angle-vector #f(-8.43548 -16.9475 -96.4631 80.3675 -13.336 19.0749 35.4682 -9.61909 -96.8849 109.094 -9.44266 2.10682 8.0 0.0 0.0 0.0 0.0 -13.7511 33.5688 -108.234 8.54591 -90.0 0.0 45.0 3.38633 0.0 55.0 20.0 15.0 -100.0 25.0 0.0 -45.0)) ;; move torso to -100
+   ;; (send robot :angle-vector #f(-13.7393 -25.3936 -95.4094 71.4519 -7.39605 28.8591 30.4376 -19.3225 -88.6644 109.485 -20.8208 19.3216 5.68288 0.0 -0.472369 0.0 0.0 -0.900602 25.4208 -73.4803 49.5891 -47.773 -0.036939 13.1557 -20.6728 -31.1749 -18.8595 28.6218 -40.0612 -119.661 11.6674 -22.9237 11.7398)) ;; noda-sitting-pose
+   ;; (send robot :angle-vector #f(-13.7323 -25.8376 -95.7889 82.4073 -16.562 29.2379 30.4377 -18.1196 -87.6194 110.528 -22.9086 18.1188 5.68288 0.0 -0.472369 -32.0 34.74 0.13164 24.9727 -71.0757 49.82 -44.5932 0.487797 12.7499 -21.7149 -26.8661 -14.9803 34.5785 -38.4324 -123.493 13.0696 -25.4864 6.78645)) ;; noda-sitting-pose-2
+   (send robot :angle-vector #f(-13.7323 -25.8376 -95.7889 82.4073 -16.562 29.2379 30.4377 -18.1196 -87.6194 110.528 -22.9086 18.1188 5.68288 0.0 -0.472369 0.0 0.0 0.13164 24.9727 -71.0757 49.82 -44.5932 0.487797 12.7499 -21.7149 -26.8661 -14.9803 34.5785 -38.4324 -123.493 13.0696 -25.4864 6.78645)) ;; noda-sitting-pose-2 with neck 0
    (when real
      (send *ri* :angle-vector (send robot :angle-vector) tm)
      (send *ri* :wait-interpolation)
@@ -37,7 +40,8 @@
      )
    ;; (send robot :move-to (make-coords :pos (float-vector 20 720 -90) :rpy (float-vector 0.0 0.0 0.0)) :world) ;; adjust in real vehicle
    ;; (send robot :move-to (make-coords :pos (float-vector 20 670 -90) :rpy (float-vector 0.0 0.0 0.0)) :world) ;; move torso to -50
-   (send robot :move-to (make-coords :pos (float-vector 20 620 -90) :rpy (float-vector 0.0 0.0 0.0)) :world) ;; move torso to -100
+   ;; (send robot :move-to (make-coords :pos (float-vector 20 620 -90) :rpy (float-vector 0.0 0.0 0.0)) :world) ;; move torso to -100
+   (send robot :move-to (make-coords :pos (float-vector 20 720 -65) :rpy (float-vector 0.0 0.0 0.0)) :world) ;; noda-sitting-pose and fixed in real polaris
    )
 
   (:turn-handle
@@ -60,11 +64,30 @@
    )
   (:set-impedance-for-handle
    (limb)
-   (send *ri* :start-impedance limb :M-p 200 :D-p 600 :K-p 1400)
+   ;; (send *ri* :start-impedance limb :M-p 200 :D-p 600 :K-p 1400)
+   ;; (send *ri* :start-impedance limb :M-p 200 :D-p 1200 :K-p 2000)
+   (send *ri* :start-impedance limb :M-p 0 :D-p 1200 :K-p 2000 :M-r 0.0) ;; M = 0 temporarily for impedance follow-up
+   )
+  (:set-impedance-for-support
+   (limb)
+   (cond
+    ((member limb (list :larm :rarm :arms))
+     ;; (send *ri* :start-impedance limb :M-p 150 :D-p 2000 :K-p 4000 :moment-gain #(1 1 1) :M-r 25 :D-r 150 :K-r 200)
+     (send *ri* :start-impedance limb :M-p 0 :D-p 2000 :K-p 4000 :moment-gain #(1 1 1) :M-r 0 :D-r 150 :K-r 200) ;; M = 0 temporarily for impedance follow-up
+     )
+    ((member limb (list :lleg :rleg :legs))
+     ;; (send *ri* :start-impedance limb :M-p 200 :D-p 4000 :K-p 5000 :moment-gain #(1 1 1) :M-r 50 :D-r 500 :K-r 600)
+     (send *ri* :start-impedance limb :M-p 0 :D-p 4000 :K-p 5000 :moment-gain #(1 1 1) :M-r 0 :D-r 500 :K-r 600) ;; M = 0 temporarily for impedance follow-up
+     )
+    (t ;; default
+     ;; (send *ri* :start-impedance limb :M-p 200 :D-p 4000 :K-p 6000 :moment-gain #(1 1 1) :M-r 50 :D-r 250 :K-r 400)
+     (send *ri* :start-impedance limb :M-p 0 :D-p 4000 :K-p 6000 :moment-gain #(1 1 1) :M-r 0 :D-r 250 :K-r 400) ;; M = 0 temporarily for impedance follow-up
+     )
+    )
    )
 
   (:approach-pedal
-   (limb target-pedal &key (tm 2500) (debug-view nil))
+   (limb target-pedal &key (tm 2000) (debug-view nil))
    (let (approach-result)
      (case target-pedal
        (:accel-pedal
@@ -72,7 +95,9 @@
         ;; (send robot :rleg :angle-vector #f(-13.2762 -24.7025 -92.0869 71.704 -10.7745 28.0506)) ;; move legs -100 in x axis from above
         ;; (send robot :rleg :angle-vector #f(-10.8755 -20.9737 -94.5136 76.5544 -12.2659 23.7151)) ;; move torso -50
         ;; (send robot :rleg :angle-vector #f(-8.43548 -16.9475 -96.4631 80.3675 -13.336 19.0749)) ;; move torso -100
-        (send robot :rleg :angle-vector #f(-8.75369 -17.4852 -99.9228 80.091 -9.69405 19.6926)) ;; fixed in real polaris
+        ;; (send robot :rleg :angle-vector #f(-8.75369 -17.4852 -99.9228 80.091 -9.69405 19.6926)) ;; fixed in real polaris
+        ;; (send robot :rleg #f(30.4376 -19.3225 -88.6644 109.485 -20.8208 19.3216)) ;; noda-sitting-pose
+        (send robot :rleg :angle-vector #f(-12.8499 -24.172 -89.5563 69.4056 -13.128 27.3947)) ;; noda-sitting-pose fixed in real polaris
         (setq approach-result t)
         )
        (:brake-pedal
@@ -93,12 +118,12 @@
    )
 
   (:approach-fist
-   (&rest args &key (rotation-axis :x) &allow-other-keys)
-   (send-super* :approach-fist :rotation-axis rotation-axis args)
+   (&rest args &key (rotation-axis :x) (reach-until-touch-thre 80) (max-dist 100) &allow-other-keys)
+   (send-super* :approach-fist :rotation-axis rotation-axis :reach-until-touch-thre reach-until-touch-thre :max-dist max-dist args)
    )
   (:approach-floor
-   (&rest args &key (start-impedance nil) &allow-other-keys)
-   (send-super* :approach-floor :start-impedance start-impedance args)
+   (&rest args &key (start-impedance nil) (offset #f(0 0 10)) (reach-until-touch-thre 150) (max-dist 100) &allow-other-keys)
+   (send-super* :approach-floor :start-impedance start-impedance :offset offset :reach-until-touch-thre reach-until-touch-thre :max-dist max-dist args)
    )
 
   ;; egress
@@ -291,3 +316,8 @@
 
 ;; :rleg :angle-vector #f(-8.91258 -17.7523 -100.784 83.8894 -12.6788 19.9996)
 ;; x +20 z +30 #f(-8.75369 -17.4852 -99.9228 80.091 -9.69405 19.6926)
+
+;; succeeded lasvegas pose 20150515
+;; fullbody (send robot :angle-vector #f(-8.43548 -16.9475 -96.4631 80.3675 -13.336 19.0749 35.4682 -9.61909 -96.8849 109.094 -9.44266 2.10682 8.0 0.0 0.0 0.0 0.0 -13.7511 33.5688 -108.234 8.54591 -90.0 0.0 45.0 3.38633 0.0 55.0 20.0 15.0 -100.0 25.0 0.0 -45.0)) ;; move torso to -100
+;; accel (send robot :rleg :angle-vector #f(-8.75369 -17.4852 -99.9228 80.091 -9.69405 19.6926)) ;; fixed in real polaris
+;; ride (send robot :move-to (make-coords :pos (float-vector 20 620 -90) :rpy (float-vector 0.0 0.0 0.0)) :world) ;; move torso to -100
