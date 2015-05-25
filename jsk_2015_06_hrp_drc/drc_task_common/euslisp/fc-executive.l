@@ -127,6 +127,43 @@
                 self :enable-overwrite-head-joint-command-callback)
           (list drc_com_common::OCS2FCSmall::*DISABLE_OVERWRITE_HEAD_JOINT*
                 self :disable-overwrite-head-joint-command-callback)
+          ;;
+          ;; ri utils
+          ;; grasp
+          (list drc_com_common::FC2OCSSmall::*RARM_START_GRASP*
+                self :rarm-start-grasp-callback)
+          (list drc_com_common::FC2OCSSmall::*RARM_STOP_GRASP*
+                self :rarm-stop-grasp-callback)
+          (list drc_com_common::FC2OCSSmall::*LARM_START_GRASP*
+                self :larm-start-grasp-callback)
+          (list drc_com_common::FC2OCSSmall::*LARM_STOP_GRASP*
+                self :larm-stop-grasp-callback)
+          ;; impedance
+          (list drc_com_common::FC2OCSSmall::*RARM_START_IMP*
+                self :rarm-start-imp-callback)
+          (list drc_com_common::FC2OCSSmall::*RARM_STOP_IMP*
+                self :rarm-stop-imp-callback)
+          (list drc_com_common::FC2OCSSmall::*LARM_START_IMP*
+                self :larm-start-imp-callback)
+          (list drc_com_common::FC2OCSSmall::*LARM_STOP_IMP*
+                self :larm-stop-imp-callback)
+          (list drc_com_common::FC2OCSSmall::*RLEG_START_IMP*
+                self :rleg-start-imp-callback)
+          (list drc_com_common::FC2OCSSmall::*RLEG_STOP_IMP*
+                self :rleg-stop-imp-callback)
+          (list drc_com_common::FC2OCSSmall::*LLEG_START_IMP*
+                self :lleg-start-imp-callback)
+          (list drc_com_common::FC2OCSSmall::*LLEG_STOP_IMP*
+                self :lleg-stop-imp-callback)
+          ;; hard impedance mode
+          (list drc_com_common::FC2OCSSmall::*RARM_START_IMP_HARD*
+                self :rarm-start-imp-hard-callback)
+          (list drc_com_common::FC2OCSSmall::*LARM_START_IMP_HARD*
+                self :larm-start-imp-hard-callback)
+          (list drc_com_common::FC2OCSSmall::*RLEG_START_IMP_HARD*
+                self :rleg-start-imp-hard-callback)
+          (list drc_com_common::FC2OCSSmall::*LLEG_START_IMP_HARD*
+                self :lleg-start-imp-hard-callback)
           )
     self)
   (:register-timelimits (sm)
@@ -916,6 +953,59 @@ It sends :angle-vector to robot and return 'finished' message to ocs"
                           (setf (elt (send msg :params) 5) 0) ;force to set zero
                           (send self :send-to-ocs msg)
                           (send smachine :go-to :initial)))))))))))))
+  )
+
+(defmethod fc-executive-app
+  (:limb-grasp-callback
+   (limb pose)
+   (cond
+    ((find-method *ri* :start-grasp)
+     (send *ri* (if (eq pose :grasp) :start-grasp :stop-grasp) limb))
+    ((find-method *ri* :hand-anngle-vector)
+     (send *ri* :hand-angle-vector
+           (progn (send *robot* :hand limb
+                        (if (eq pose :grasp) :grasp-pose :open-pose))
+                  (send *robot* :hand-angle-vector))))
+    )
+   )
+  (:rarm-start-grasp-callback
+   (msg) (send self :limb-grasp-callback :rarm :grasp))
+  (:rarm-stop-grasp-callback
+   (msg) (send self :limb-grasp-callback :rarm :open))
+  (:larm-start-grasp-callback
+   (msg) (send self :limb-grasp-callback :larm :grasp))
+  (:larm-stop-grasp-callback
+   (msg) (send self :limb-grasp-callback :larm :open))
+  ;;
+  (:rarm-start-imp-callback
+   (msg) (send *ri* :start-impedance :rarm))
+  (:rarm-stop-imp-callback
+   (msg) (send *ri* :stop-impedance :rarm))
+  (:larm-start-imp-callback
+   (msg) (send *ri* :start-impedance :larm))
+  (:larm-stop-imp-callback
+   (msg) (send *ri* :stop-impedance :larm))
+  (:rleg-start-imp-callback
+   (msg) (send *ri* :start-impedance :rleg))
+  (:rleg-stop-imp-callback
+   (msg) (send *ri* :stop-impedance :rleg))
+  (:lleg-start-imp-callback
+   (msg) (send *ri* :start-impedance :lleg))
+  (:lleg-stop-imp-callback
+   (msg) (send *ri* :stop-impedance :lleg))
+  ;;
+  (:rarm-start-imp-hard-callback
+   (msg)
+   (send *ri* :start-impedance :rarm :m-p 150 :d-p 2000 :k-p 4000 :m-r 25 :d-r 150 :k-r 200))
+  (:larm-start-imp-hard-callback
+   (msg)
+   (send *ri* :start-impedance :larm :m-p 150 :d-p 2000 :k-p 4000 :m-r 25 :d-r 150 :k-r 200))
+  (:rleg-start-imp-hard-callback
+   (msg)
+   (send *ri* :start-impedance :rleg :m-p 200 :d-p 3000 :k-p 5000 :m-r 10 :d-p 100 :k-r 40))
+  (:lleg-start-imp-hard-callback
+   (msg)
+   (send *ri* :start-impedance :lleg :m-p 200 :d-p 3000 :k-p 5000 :m-r 10 :d-p 100 :k-r 40))
   )
 
 (defmethod fc-executive-app
